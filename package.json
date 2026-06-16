@@ -1,0 +1,64 @@
+{
+  "name": "solana-resilience-sdk",
+  "version": "0.1.0",
+  "description": "Systems-grade SDK that improves RPC and transaction reliability for Solana dApps. Built on web3.js v2.0 with health-aware load balancing, automatic failover, circuit breaking, MEV (Jito) routing with RPC fallback, dynamic fee estimation, OpenTelemetry/Datadog observability, and a diagnostics CLI.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "solana",
+    "web3.js",
+    "rpc",
+    "reliability",
+    "resilience",
+    "jito",
+    "mev",
+    "load-balancing",
+    "circuit-breaker",
+    "opentelemetry",
+    "datadog"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "bin": {
+    "srpc": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
+    "cli": "tsx src/cli/index.ts",
+    "example": "tsx examples/basic.ts"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@solana/web3.js": "^2.0.0",
+    "commander": "^12.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^2.1.8",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
