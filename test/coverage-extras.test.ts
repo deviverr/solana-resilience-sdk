@@ -3,11 +3,16 @@ import { createResilientTransport } from "../src/core/resilientTransport.js";
 import { createResilientClient } from "../src/core/resilientRpc.js";
 import { createFeeEstimator } from "../src/fees/feeEstimator.js";
 import { staticFeeSource } from "../src/fees/providers.js";
-import { DatadogExporter } from "../src/observability/datadog.js";
+import { DatadogExporter, createDatadogExporter } from "../src/observability/datadog.js";
 import { createMonitor } from "../src/monitor/monitor.js";
 import { MetricsCollector } from "../src/observability/metrics.js";
 import { NodePool } from "../src/core/nodePool.js";
-import { ResilientSender, type SenderRpc } from "../src/relay/sender.js";
+import {
+  ResilientSender,
+  createResilientSender,
+  type SenderRpc,
+} from "../src/relay/sender.js";
+import { base58Encode, bytesToBase64 } from "../src/util/base58.js";
 import { manualClock } from "./mocks/networkSimulator.js";
 
 /**
@@ -56,6 +61,78 @@ describe("default wiring paths", () => {
     monitor.start(60_000);
     monitor.stop();
     expect(monitor.snapshot().endpoints).toHaveLength(1);
+  });
+
+  it("createResilientSender factory returns a working sender", async () => {
+    const rpc: SenderRpc = {
+      sendTransaction: () => ({ send: async () => "sig" }),
+      getSignatureStatuses: () => ({
+        send: async () => ({
+          value: [{ confirmationStatus: "confirmed" as const, err: null }],
+        }),
+      }),
+      getEpochInfo: () => ({ send: async () => ({ blockHeight: 0 }) }),
+    };
+    const sender = createResilientSender({ rpc });
+    const result = await sender.send({ base64Transaction: "TX", signature: "sig" });
+    expect(result.confirmed).toBe(true);
+    expect(result.route).toBe("rpc");
+  });
+
+  it("createDatadogExporter factory builds an exporter", async () => {
+    const exporter = createDatadogExporter({
+      apiKey: "k",
+      flushIntervalMs: 60_000,
+      fetchFn: (async () => ({ ok: true, status: 202 })) as never,
+    });
+    expect(exporter).toBeInstanceOf(DatadogExporter);
+    await exporter.shutdown();
+  });
+
+  it("acquireExcluding honors the least-inflight strategy", () => {
+    const pool = new NodePool([{ url: "a" }, { url: "b" }, { url: "c" }], {
+      strategy: "least-inflight",
+    });
+    pool.endpoints[1]!.inflight = 9;
+    pool.endpoints[2]!.inflight = 1;
+    const first = pool.acquire()!; // a (all unproven → lowest inflight = a@0)
+    const next = pool.acquireExcluding(new Set([first]))!;
+    expect(next.url).toBe("c"); // c (inflight 1) beats b (inflight 9)
+  });
+
+  it("acquireExcluding honors the weighted-random strategy", () => {
+    const pool = new NodePool([{ url: "a", weight: 1 }, { url: "b", weight: 5 }], {
+      strategy: "weighted-random",
+      random: () => 0.99,
+    });
+    const first = pool.acquire()!;
+    const next = pool.acquireExcluding(new Set([first]))!;
+    expect(next.url).not.toBe(first.url); // only one candidate remains
+  });
+
+  it("weighted-random falls back to the first candidate when all weights are zero", () => {
+    const pool = new NodePool([{ url: "a", weight: 0 }, { url: "b", weight: 0 }], {
+      strategy: "weighted-random",
+      random: () => 0.5,
+    });
+    expect(pool.acquire()!.url).toBe("a");
+  });
+
+  it("base58 round-trips leading zeros and matches a known vector", () => {
+    expect(base58Encode(new Uint8Array([0, 0, 1]))).toBe("112");
+    // "hello world" → known base58 vector.
+    const hello = new TextEncoder().encode("hello world");
+    expect(base58Encode(hello)).toBe("StV1DL6CwTryKyV");
+  });
+
+  it("bytesToBase64 uses the browser btoa fallback when Buffer is absent", () => {
+    const original = (globalThis as { Buffer?: unknown }).Buffer;
+    try {
+      (globalThis as { Buffer?: unknown }).Buffer = undefined;
+      expect(bytesToBase64(new Uint8Array([104, 105]))).toBe("aGk="); // "hi"
+    } finally {
+      (globalThis as { Buffer?: unknown }).Buffer = original;
+    }
   });
 
   it("sender treats a non-expired blockhash as still pending", async () => {

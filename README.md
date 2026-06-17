@@ -1,5 +1,11 @@
 # solana-resilience-sdk
 
+[![CI](https://github.com/deviverr/solana-resilience-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/deviverr/solana-resilience-sdk/actions/workflows/ci.yml)
+[![coverage](https://img.shields.io/badge/coverage-99%25%20lines%20%2F%2094%25%20branches-brightgreen)](#testing--network-simulation)
+[![web3.js](https://img.shields.io/badge/web3.js-v2.0-9945FF)](https://github.com/anza-xyz/kit)
+[![node](https://img.shields.io/badge/node-%E2%89%A518-339933)](#install)
+[![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
+
 > A systems-grade SDK that makes Solana RPC and transaction submission reliable — built on **web3.js v2.0**.
 
 Public RPCs rate-limit, drop transactions, lag, and occasionally fall over. This SDK wraps web3.js v2.0 with a resilience layer so your dApp keeps working anyway: **health-aware load balancing, automatic failover, circuit breaking, MEV (Jito) routing with RPC fallback, dropped-transaction rebroadcast, dynamic priority-fee estimation, OpenTelemetry/Datadog observability, and a live diagnostics CLI.**
@@ -183,15 +189,15 @@ calls, HTTP 429 rate-limit bursts, and intermittent errors — with a manual clo
 so backoff/expiry/health timing is exact and fast.
 
 ```bash
-npm test            # 103 tests
-npm run test:cov    # coverage with 90% thresholds enforced
+npm test            # 110 tests, fully offline
+npm run test:cov    # coverage with enforced thresholds (CI-gated)
 ```
 
 ```
-Statements   : 98.28%
-Branches     : 92.83%
-Functions    : 97.34%
-Lines        : 98.28%
+Statements   : 99.37%
+Branches     : 94.40%
+Functions    : 99.11%
+Lines        : 99.37%
 ```
 
 Failure modes covered: failover to a healthy node, circuit open/half-open/close,
@@ -212,7 +218,7 @@ with failing providers, dropped-tx rebroadcast, and blockhash-expiry fast-fail.
 | Observability (OTel/Datadog) | `observability/otel.ts`, `observability/datadog.ts` | `otel.test.ts`, `datadog.test.ts` |
 | Real-time monitor | `monitor/monitor.ts` | `monitor.test.ts` |
 | Diagnostics CLI | `cli/index.ts` (`srpc`) | live `doctor`/`bench`/`monitor` |
-| 90%+ coverage w/ network sim | `test/mocks/networkSimulator.ts` + suite | 98% lines |
+| 90%+ coverage w/ network sim | `test/mocks/networkSimulator.ts` + suite | 99% lines / 94% branches, 110 tests |
 
 ## Scripts
 
