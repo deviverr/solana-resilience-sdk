@@ -27,8 +27,21 @@ export function createGetHealthProbe(
     if (!upstream) return { ok: false, latencyMs: 0 };
     const start = clock();
     const payload = { jsonrpc: "2.0", id: 1, method: "getHealth", params: [] };
-    await upstream({ payload });
-    return { ok: true, latencyMs: clock() - start };
+    const response = await upstream<{ result?: unknown; error?: unknown }>({
+      payload,
+    });
+    const latencyMs = clock() - start;
+    // A healthy node replies `{ result: "ok" }`. A node that is *behind* replies
+    // with a JSON-RPC error envelope (e.g. -32005 "Node is behind by N slots"),
+    // and the raw transport does NOT throw on that — so we must inspect the body
+    // or we'd keep routing traffic to a lagging node. Treat any error envelope
+    // (or a non-"ok" result) as unhealthy.
+    const env =
+      response && typeof response === "object"
+        ? (response as { result?: unknown; error?: unknown })
+        : null;
+    const ok = env != null && env.error == null && env.result === "ok";
+    return { ok, latencyMs };
   };
 }
 

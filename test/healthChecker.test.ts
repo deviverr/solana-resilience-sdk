@@ -19,6 +19,38 @@ describe("createGetHealthProbe", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("reports unhealthy for a 'node is behind' error envelope", async () => {
+    // The raw transport resolves (does not throw) with an error body — a lagging
+    // node must still be treated as unhealthy.
+    const transports = new Map<string, Transport>([
+      [
+        "a",
+        (async () => ({
+          error: { code: -32005, message: "Node is behind by 412 slots" },
+        })) as Transport,
+      ],
+    ]);
+    const probe = createGetHealthProbe(transports, () => 0);
+    const result = await probe(pool().endpoints[0]!);
+    expect(result.ok).toBe(false);
+  });
+
+  it("reports unhealthy when the result is not 'ok'", async () => {
+    const transports = new Map<string, Transport>([
+      ["a", (async () => ({ result: "behind" })) as Transport],
+    ]);
+    const probe = createGetHealthProbe(transports, () => 0);
+    expect((await probe(pool().endpoints[0]!)).ok).toBe(false);
+  });
+
+  it("reports unhealthy when the transport yields a non-object body", async () => {
+    const transports = new Map<string, Transport>([
+      ["a", (async () => null) as unknown as Transport],
+    ]);
+    const probe = createGetHealthProbe(transports, () => 0);
+    expect((await probe(pool().endpoints[0]!)).ok).toBe(false);
+  });
+
   it("reports unhealthy when no transport is registered", async () => {
     const probe = createGetHealthProbe(new Map());
     const result = await probe(pool().endpoints[0]!);
