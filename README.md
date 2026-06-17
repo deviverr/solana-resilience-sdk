@@ -1,6 +1,7 @@
 # solana-resilience-sdk
 
 [![CI](https://github.com/deviverr/solana-resilience-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/deviverr/solana-resilience-sdk/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/tag/deviverr/solana-resilience-sdk?label=release&color=9945FF)](https://github.com/deviverr/solana-resilience-sdk/releases)
 [![coverage](https://img.shields.io/badge/coverage-99%25%20lines%20%2F%2094%25%20branches-brightgreen)](#testing--network-simulation)
 [![web3.js](https://img.shields.io/badge/web3.js-v2.0-9945FF)](https://github.com/anza-xyz/kit)
 [![node](https://img.shields.io/badge/node-%E2%89%A518-339933)](#install)
@@ -230,6 +231,33 @@ with failing providers, dropped-tx rebroadcast, and blockhash-expiry fast-fail.
 | `npm run example` | Run `examples/basic.ts` against devnet |
 | `npm run cli -- doctor` | Run the CLI from source |
 
+## Roadmap
+
+- [ ] Triton / QuickNode dedicated fee sources
+- [ ] Jito bundle helper that builds the tip transfer for you
+- [ ] WebSocket subscription failover (`accountSubscribe`, `slotSubscribe`)
+- [ ] Prometheus `/metrics` exporter alongside OpenTelemetry & Datadog
+- [ ] Adaptive strategy that auto-switches between load-balancing modes under load
+
+## Contributing
+
+Issues and PRs are welcome. To get set up:
+
+```bash
+git clone https://github.com/deviverr/solana-resilience-sdk
+cd solana-resilience-sdk
+npm install
+npm run typecheck && npm run test:cov && npm run build
+```
+
+The whole suite runs offline against the deterministic network simulator, so
+`npm test` needs no RPC endpoint. Please keep coverage above the enforced
+thresholds (95% lines / 90% branches) and add a test for any new failure mode.
+
+## Author
+
+Built and maintained by [**deviverr**](https://github.com/deviverr).
+
 ## License
 
-MIT
+[MIT](./LICENSE) © deviverr

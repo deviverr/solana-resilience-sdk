@@ -4,6 +4,15 @@
   "description": "Systems-grade SDK that improves RPC and transaction reliability for Solana dApps. Built on web3.js v2.0 with health-aware load balancing, automatic failover, circuit breaking, MEV (Jito) routing with RPC fallback, dynamic fee estimation, OpenTelemetry/Datadog observability, and a diagnostics CLI.",
   "type": "module",
   "license": "MIT",
+  "author": "deviverr <dedpul3000a@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deviverr/solana-resilience-sdk.git"
+  },
+  "homepage": "https://github.com/deviverr/solana-resilience-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/deviverr/solana-resilience-sdk/issues"
+  },
   "keywords": [
     "solana",
     "web3.js",
