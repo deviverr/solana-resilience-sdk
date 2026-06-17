@@ -105,8 +105,18 @@ const result = await sender.send(
 // → { signature, route: "jito" | "rpc", rebroadcasts, confirmed }
 ```
 
-A Jito-routed transaction must tip: use `relay.getTipAccount()` and `relay.tipLamports`
-to add a SystemProgram transfer to one of the canonical tip accounts.
+A Jito-routed transaction must tip. `relay.tipInstruction({ from })` builds the
+required SystemProgram transfer (to a random canonical tip account) as a ready-to-use
+web3.js v2 instruction — just append it to your transaction message before signing:
+
+```ts
+import { appendTransactionMessageInstruction } from "@solana/web3.js";
+
+message = appendTransactionMessageInstruction(
+  relay.tipInstruction({ from: payer.address }), // default tip = relay.tipLamports
+  message,
+);
+```
 
 ### 3. Dynamic fee estimation
 
@@ -234,7 +244,8 @@ with failing providers, dropped-tx rebroadcast, and blockhash-expiry fast-fail.
 ## Roadmap
 
 - [ ] Triton / QuickNode dedicated fee sources
-- [ ] Jito bundle helper that builds the tip transfer for you
+- [x] Jito tip-transfer instruction helper (`relay.tipInstruction`)
+- [ ] Full Jito bundle helper (multi-tx + tip assembly)
 - [ ] WebSocket subscription failover (`accountSubscribe`, `slotSubscribe`)
 - [ ] Prometheus `/metrics` exporter alongside OpenTelemetry & Datadog
 - [ ] Adaptive strategy that auto-switches between load-balancing modes under load

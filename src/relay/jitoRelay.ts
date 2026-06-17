@@ -1,4 +1,6 @@
+import type { Address } from "@solana/web3.js";
 import type { MevRelay, RelaySendOptions } from "./mevRelay.js";
+import { createTransferInstruction, type TransferInstruction } from "./tip.js";
 
 /** Canonical Jito mainnet tip accounts (a tip transfer must target one). */
 export const JITO_TIP_ACCOUNTS = [
@@ -58,6 +60,25 @@ export class JitoRelay implements MevRelay {
   getTipAccount(): string {
     const i = Math.floor(this.random() * JITO_TIP_ACCOUNTS.length);
     return JITO_TIP_ACCOUNTS[Math.min(i, JITO_TIP_ACCOUNTS.length - 1)]!;
+  }
+
+  /**
+   * Build the SystemProgram tip-transfer instruction a Jito-routed transaction
+   * must include — a transfer of `lamports` (default {@link tipLamports}) from
+   * `from` to a randomly-chosen {@link JITO_TIP_ACCOUNTS} account. Append it to
+   * your transaction message before signing.
+   */
+  tipInstruction(input: {
+    readonly from: Address | string;
+    readonly lamports?: bigint | number;
+    /** Pin a specific tip account instead of a random one. */
+    readonly tipAccount?: Address | string;
+  }): TransferInstruction {
+    return createTransferInstruction({
+      from: input.from,
+      to: input.tipAccount ?? this.getTipAccount(),
+      lamports: input.lamports ?? this.tipLamports,
+    });
   }
 
   async sendTransaction(

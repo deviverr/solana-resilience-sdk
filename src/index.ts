@@ -83,6 +83,12 @@ export {
   type JitoRelayOptions,
 } from "./relay/jitoRelay.js";
 export {
+  createTransferInstruction,
+  SYSTEM_PROGRAM_ADDRESS,
+  type TransferInstruction,
+  type TransferInput,
+} from "./relay/tip.js";
+export {
   ResilientSender,
   createResilientSender,
   type SenderRpc,

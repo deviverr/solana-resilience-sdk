@@ -4,6 +4,25 @@ All notable changes to `solana-resilience-sdk` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Health checker**: the default `getHealth` probe now inspects the response
+  body. A node that is behind replies with a JSON-RPC error envelope that the
+  raw transport does not throw on, so it was previously left in rotation; such
+  endpoints (and any non-`"ok"` result) are now correctly marked unhealthy.
+
+### Added
+
+- **Jito tip helper** — `relay.tipInstruction({ from })` and the standalone
+  `createTransferInstruction(...)` build the required SystemProgram tip transfer
+  as a ready-to-append web3.js v2 instruction. Also exports
+  `SYSTEM_PROGRAM_ADDRESS`.
+- **Release workflow** — pushing a `v*` tag verifies the build and cuts a GitHub
+  release with a packed tarball and generated notes.
+- `SECURITY.md` with private vulnerability-reporting guidance.
+
 ## [0.1.0] — 2026-06-17
 
 Initial release. A resilience layer for Solana dApps, implemented as a custom
