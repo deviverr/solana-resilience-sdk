@@ -15,6 +15,12 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ### Added
 
+- **WebSocket subscription failover** — `createResilientSubscriptions(...)` wraps
+  web3.js v2 subscriptions in an auto-reconnecting, endpoint-rotating async
+  iterable so `accountSubscribe` / `slotSubscribe` / `signatureSubscribe` streams
+  survive dropped sockets and node failovers. The transport-agnostic core
+  (`resilientSubscription`) is fully unit-tested offline. Adds
+  `SubscriptionClosedError`.
 - **Jito tip helper** — `relay.tipInstruction({ from })` and the standalone
   `createTransferInstruction(...)` build the required SystemProgram tip transfer
   as a ready-to-append web3.js v2 instruction. Also exports

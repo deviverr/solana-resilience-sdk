@@ -45,6 +45,7 @@ export {
   AllEndpointsFailedError,
   NoHealthyEndpointsError,
   TransactionConfirmationError,
+  SubscriptionClosedError,
   type FailedAttempt,
 } from "./core/errors.js";
 export type {
@@ -109,6 +110,19 @@ export {
   type ResilientWalletAdapterOptions,
   type SignAndSendInput,
 } from "./wallet/adapter.js";
+
+// Subscriptions (WebSocket failover + auto-reconnect)
+export {
+  resilientSubscription,
+  createResilientSubscriptions,
+  type ResilientSubscriptions,
+  type ResilientSubscriptionsConfig,
+  type ResilientSubscriptionOptions,
+  type SubscriptionConnect,
+  type SubscriptionEndpoint,
+  type SubscribeOptions,
+  type BackoffConfig,
+} from "./subscriptions/resilientSubscriptions.js";
 
 // Observability
 export {

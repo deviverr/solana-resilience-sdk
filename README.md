@@ -190,6 +190,40 @@ rpc-fallback                 up       half-open   210ms    640ms    14      1   
 `createMonitor({ collector, pool })` also exposes `snapshot()` / `onUpdate()` for
 building your own dashboard.
 
+### 7. WebSocket subscription failover
+
+RPC calls are only half the story — `accountSubscribe` / `slotSubscribe` /
+`signatureSubscribe` run over a WebSocket that silently drops when a node
+restarts or a connection goes stale, and your stream just stops. `createResilientSubscriptions`
+wraps web3.js v2 subscriptions so a dropped socket transparently **reconnects and
+fails over** to another endpoint — exposed as one continuous async iterable.
+
+```ts
+import { createResilientSubscriptions } from "solana-resilience-sdk";
+
+const subs = createResilientSubscriptions({
+  endpoints: ["wss://primary-rpc", "wss://fallback-rpc"], // rotated on reconnect
+  backoff: { baseDelayMs: 250, maxDelayMs: 10_000 },
+});
+
+const stream = subs.subscribe((rpc, signal) =>
+  rpc.slotNotifications().subscribe({ abortSignal: signal }),
+);
+
+for await (const slot of stream) {
+  console.log("slot", slot); // keeps flowing across drops + node failovers
+}
+```
+
+- **Auto-reconnect** with exponential backoff + jitter; backs off only while the
+  stream keeps failing, and reconnects promptly once a connection has delivered.
+- **Endpoint rotation** on every reconnect, so one flaky node can't kill the stream.
+- **Clean teardown** — abort the caller's `AbortSignal` (or `break` the loop) and
+  the underlying socket is closed. Exhausting `maxReconnects` throws `SubscriptionClosedError`.
+
+The core (`resilientSubscription`) is transport-agnostic, so the whole
+reconnect/failover state machine is unit-tested offline with no sockets.
+
 ---
 
 ## Testing & network simulation
@@ -246,7 +280,7 @@ with failing providers, dropped-tx rebroadcast, and blockhash-expiry fast-fail.
 - [ ] Triton / QuickNode dedicated fee sources
 - [x] Jito tip-transfer instruction helper (`relay.tipInstruction`)
 - [ ] Full Jito bundle helper (multi-tx + tip assembly)
-- [ ] WebSocket subscription failover (`accountSubscribe`, `slotSubscribe`)
+- [x] WebSocket subscription failover (`createResilientSubscriptions`)
 - [ ] Prometheus `/metrics` exporter alongside OpenTelemetry & Datadog
 - [ ] Adaptive strategy that auto-switches between load-balancing modes under load
 

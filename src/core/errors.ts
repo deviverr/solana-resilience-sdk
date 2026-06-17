@@ -51,3 +51,20 @@ export class TransactionConfirmationError extends Error {
     this.attempts = attempts;
   }
 }
+
+/**
+ * Thrown when a resilient subscription exhausted its reconnection budget
+ * (`maxReconnects`) without re-establishing a stream. Carries the last
+ * underlying error as `cause`.
+ */
+export class SubscriptionClosedError extends Error {
+  readonly reconnects: number;
+
+  constructor(reconnects: number, cause?: unknown) {
+    super(`Subscription closed after ${reconnects} reconnect attempt(s)`, {
+      cause,
+    });
+    this.name = "SubscriptionClosedError";
+    this.reconnects = reconnects;
+  }
+}
