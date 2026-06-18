@@ -52,7 +52,8 @@
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "cli": "tsx src/cli/index.ts",
-    "example": "tsx examples/basic.ts"
+    "example": "tsx examples/basic.ts",
+    "example:subs": "tsx examples/subscriptions.ts"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
