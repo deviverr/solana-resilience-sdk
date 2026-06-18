@@ -2,14 +2,14 @@
 
 [![CI](https://github.com/deviverr/solana-resilience-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/deviverr/solana-resilience-sdk/actions/workflows/ci.yml)
 [![release](https://img.shields.io/github/v/tag/deviverr/solana-resilience-sdk?label=release&color=9945FF)](https://github.com/deviverr/solana-resilience-sdk/releases)
-[![coverage](https://img.shields.io/badge/coverage-99%25%20lines%20%2F%2094%25%20branches-brightgreen)](#testing--network-simulation)
+[![coverage](https://img.shields.io/badge/coverage-100%25%20lines%20%2F%20100%25%20branches-brightgreen)](#testing--network-simulation)
 [![web3.js](https://img.shields.io/badge/web3.js-v2.0-9945FF)](https://github.com/anza-xyz/kit)
 [![node](https://img.shields.io/badge/node-%E2%89%A518-339933)](#install)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 > A systems-grade SDK that makes Solana RPC and transaction submission reliable — built on **web3.js v2.0**.
 
-Public RPCs rate-limit, drop transactions, lag, and occasionally fall over. This SDK wraps web3.js v2.0 with a resilience layer so your dApp keeps working anyway: **health-aware load balancing, automatic failover, circuit breaking, MEV (Jito) routing with RPC fallback, dropped-transaction rebroadcast, dynamic priority-fee estimation, OpenTelemetry/Datadog observability, and a live diagnostics CLI.**
+Public RPCs rate-limit, drop transactions, lag, and occasionally fall over. This SDK wraps web3.js v2.0 with a resilience layer so your dApp keeps working anyway: **health-aware load balancing, automatic failover, circuit breaking, MEV (Jito) routing with RPC fallback and atomic bundles, dropped-transaction rebroadcast, dynamic priority-fee estimation (native/Helius/Triton/QuickNode), WebSocket subscription failover, OpenTelemetry/Datadog/Prometheus observability, and a live diagnostics CLI.**
 
 The whole layer is implemented as a **custom web3.js v2 `RpcTransport`**, so it composes *behind* the standard `createSolanaRpc` API. You get a normal v2 RPC object — your existing code doesn't change.
 
@@ -118,18 +118,41 @@ message = appendTransactionMessageInstruction(
 );
 ```
 
+**Atomic bundles.** Assemble an ordered, all-or-nothing multi-transaction bundle
+(setup → swap → tip) with `relay.bundle()` — it enforces the 5-transaction Block
+Engine limit — then submit it in one shot. One transaction in the bundle carries
+the tip (append `relay.tipInstruction(...)` before signing it):
+
+```ts
+const bundle = relay
+  .bundle()
+  .add(setupTxBase64)
+  .add(swapTxBase64) // one of these carries the tip instruction
+  .add(tipTxBase64);
+
+const bundleId = await relay.sendBundle(bundle); // atomic: lands together or not at all
+```
+
 ### 3. Dynamic fee estimation
 
 Aggregate priority-fee estimates from multiple sources (native on-chain fees,
-Helius, or any custom source) with caching and safety clamps.
+Helius, Triton, QuickNode, or any custom source) with caching and safety clamps.
 
 ```ts
-import { createFeeEstimator, nativeRecentFeesSource, heliusPriorityFeeSource } from "solana-resilience-sdk";
+import {
+  createFeeEstimator,
+  nativeRecentFeesSource,
+  heliusPriorityFeeSource,
+  tritonPriorityFeeSource,
+  quickNodePriorityFeeSource,
+} from "solana-resilience-sdk";
 
 const fees = createFeeEstimator({
   sources: [
     nativeRecentFeesSource(client.rpc, { percentile: 75 }),
     heliusPriorityFeeSource({ url: HELIUS_URL, priorityLevel: "High" }),
+    tritonPriorityFeeSource({ url: TRITON_URL, percentile: 75 }),
+    quickNodePriorityFeeSource({ url: QUICKNODE_URL, level: "high" }),
   ],
   aggregate: "max",      // safest for landing
   multiplier: 1.25,
@@ -138,6 +161,10 @@ const fees = createFeeEstimator({
 
 const { microLamportsPerCu } = await fees.estimate({ accounts: writableAccounts });
 ```
+
+Sources are queried in parallel and individual failures are tolerated — as long
+as one source responds, you still get an estimate. Drop in your own by
+implementing the one-method `FeeSource` interface.
 
 ### 4. Wallet adapter (Wallet Standard)
 
@@ -157,17 +184,28 @@ const adapter = createResilientWalletAdapter({
 const { signature, confirmed } = await adapter.signAndSend({ transaction, lastValidBlockHeight });
 ```
 
-### 5. Observability — OpenTelemetry & Datadog
+### 5. Observability — OpenTelemetry, Datadog & Prometheus
 
 ```ts
-import { createOpenTelemetryExporter, createDatadogExporter } from "solana-resilience-sdk";
+import {
+  createOpenTelemetryExporter,
+  createDatadogExporter,
+  createPrometheusExporter,
+} from "solana-resilience-sdk";
 
-client.metrics.addExporter(createOpenTelemetryExporter());          // → OTLP → Datadog/Grafana/Honeycomb
-client.metrics.addExporter(createDatadogExporter({ apiKey: DD_KEY }));// direct Datadog metrics intake
+client.metrics.addExporter(createOpenTelemetryExporter());           // → OTLP → Datadog/Grafana/Honeycomb
+client.metrics.addExporter(createDatadogExporter({ apiKey: DD_KEY })); // direct Datadog metrics intake
+
+const prom = createPrometheusExporter();
+client.metrics.addExporter(prom);
+const server = await prom.serve({ port: 9_464 });                    // GET /metrics for Prometheus to scrape
 ```
 
-Exports request counts, failures, failovers, and a latency histogram, tagged by
-endpoint and method.
+All three export request counts, failures, failovers, and a latency histogram,
+tagged/labelled by endpoint and method. The Prometheus exporter emits the
+standard text exposition format (cumulative counters + `_bucket`/`_sum`/`_count`
+histogram series); mount `prom.requestListener()` on a server you already run, or
+use `prom.serve(...)` to stand one up.
 
 ### 6. Real-time monitor + diagnostics CLI
 
@@ -234,15 +272,15 @@ calls, HTTP 429 rate-limit bursts, and intermittent errors — with a manual clo
 so backoff/expiry/health timing is exact and fast.
 
 ```bash
-npm test            # 131 tests, fully offline
+npm test            # 178 tests, fully offline
 npm run test:cov    # coverage with enforced thresholds (CI-gated)
 ```
 
 ```
-Statements   : 99.37%
-Branches     : 94.40%
-Functions    : 99.11%
-Lines        : 99.37%
+Statements   : 100%
+Branches     : 100%
+Functions    : 100%
+Lines        : 100%
 ```
 
 Failure modes covered: failover to a healthy node, circuit open/half-open/close,
@@ -258,12 +296,12 @@ with failing providers, dropped-tx rebroadcast, and blockhash-expiry fast-fail.
 | web3.js v2.0 compatibility | `createResilientRpc` → `createSolanaRpcFromTransport` | `resilientRpc.test.ts` |
 | Wallet adapter (1+ major wallet) | `wallet/adapter.ts` (`fromWalletStandard`) | `wallet.test.ts` |
 | MEV routing + RPC fallback | `relay/jitoRelay.ts`, `relay/sender.ts` | `jitoRelay.test.ts`, `sender.test.ts` |
-| Dynamic fee estimates | `fees/feeEstimator.ts`, `fees/providers.ts` | `feeEstimator.test.ts`, `providers.test.ts` |
+| Dynamic fee estimates | `fees/feeEstimator.ts`, `fees/providers.ts` (native/Helius/Triton/QuickNode) | `feeEstimator.test.ts`, `providers.test.ts` |
 | Healthy-node distribution | `core/nodePool.ts`, `core/healthChecker.ts` | `nodePool.test.ts`, `healthChecker.test.ts` |
-| Observability (OTel/Datadog) | `observability/otel.ts`, `observability/datadog.ts` | `otel.test.ts`, `datadog.test.ts` |
+| Observability (OTel/Datadog/Prometheus) | `observability/{otel,datadog,prometheus}.ts` | `otel.test.ts`, `datadog.test.ts`, `prometheus.test.ts` |
 | Real-time monitor | `monitor/monitor.ts` | `monitor.test.ts` |
 | Diagnostics CLI | `cli/index.ts` (`srpc`) | live `doctor`/`bench`/`monitor` |
-| 90%+ coverage w/ network sim | `test/mocks/networkSimulator.ts` + suite | 99% lines / 94% branches, 131 tests |
+| 90%+ coverage w/ network sim | `test/mocks/networkSimulator.ts` + suite | 100% lines / 100% branches, 178 tests |
 
 ## Scripts
 
@@ -278,11 +316,11 @@ with failing providers, dropped-tx rebroadcast, and blockhash-expiry fast-fail.
 
 ## Roadmap
 
-- [ ] Triton / QuickNode dedicated fee sources
+- [x] Triton / QuickNode dedicated fee sources (`tritonPriorityFeeSource`, `quickNodePriorityFeeSource`)
 - [x] Jito tip-transfer instruction helper (`relay.tipInstruction`)
-- [ ] Full Jito bundle helper (multi-tx + tip assembly)
+- [x] Full Jito bundle helper (multi-tx + tip assembly) (`relay.bundle` / `JitoBundle`)
 - [x] WebSocket subscription failover (`createResilientSubscriptions`)
-- [ ] Prometheus `/metrics` exporter alongside OpenTelemetry & Datadog
+- [x] Prometheus `/metrics` exporter alongside OpenTelemetry & Datadog (`createPrometheusExporter`)
 - [ ] Adaptive strategy that auto-switches between load-balancing modes under load
 
 ## Contributing
@@ -298,7 +336,7 @@ npm run typecheck && npm run test:cov && npm run build
 
 The whole suite runs offline against the deterministic network simulator, so
 `npm test` needs no RPC endpoint. Please keep coverage above the enforced
-thresholds (95% lines / 90% branches) and add a test for any new failure mode.
+thresholds (99% lines / 98% branches) and add a test for any new failure mode.
 
 ## Author
 

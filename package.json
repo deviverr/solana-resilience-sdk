@@ -1,6 +1,6 @@
 {
   "name": "solana-resilience-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Systems-grade SDK that improves RPC and transaction reliability for Solana dApps. Built on web3.js v2.0 with health-aware load balancing, automatic failover, circuit breaking, MEV (Jito) routing with RPC fallback, dynamic fee estimation, OpenTelemetry/Datadog observability, and a diagnostics CLI.",
   "type": "module",
   "license": "MIT",

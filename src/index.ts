@@ -70,8 +70,14 @@ export {
 export {
   nativeRecentFeesSource,
   heliusPriorityFeeSource,
+  tritonPriorityFeeSource,
+  quickNodePriorityFeeSource,
   staticFeeSource,
   type RecentFeesRpc,
+  type HeliusFeeSourceOptions,
+  type NativeFeeSourceOptions,
+  type TritonFeeSourceOptions,
+  type QuickNodeFeeSourceOptions,
 } from "./fees/providers.js";
 
 // Relays + sending
@@ -89,6 +95,12 @@ export {
   type TransferInstruction,
   type TransferInput,
 } from "./relay/tip.js";
+export {
+  JitoBundle,
+  createBundle,
+  normalizeBundle,
+  JITO_MAX_BUNDLE_SIZE,
+} from "./relay/bundle.js";
 export {
   ResilientSender,
   createResilientSender,
@@ -140,6 +152,13 @@ export {
   createDatadogExporter,
   type DatadogExporterOptions,
 } from "./observability/datadog.js";
+export {
+  PrometheusExporter,
+  createPrometheusExporter,
+  PROMETHEUS_CONTENT_TYPE,
+  DEFAULT_LATENCY_BUCKETS,
+  type PrometheusExporterOptions,
+} from "./observability/prometheus.js";
 
 // Monitoring
 export {

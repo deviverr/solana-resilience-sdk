@@ -6,6 +6,29 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-18
+
+### Added
+
+- **Prometheus exporter** — `createPrometheusExporter(...)` renders RPC metrics
+  in the Prometheus text exposition format (cumulative counters plus a latency
+  histogram with `_bucket`/`_sum`/`_count` series). Mount `requestListener()` on
+  an existing server or call `serve({ port })` to stand up a scrapeable
+  `/metrics` endpoint, alongside the existing OpenTelemetry & Datadog exporters.
+- **Triton & QuickNode fee sources** — `tritonPriorityFeeSource(...)` (percentile
+  over Triton's `getRecentPrioritizationFees`) and `quickNodePriorityFeeSource(...)`
+  (the `qn_estimatePriorityFees` add-on) join the native and Helius sources, so
+  priority-fee estimation works on dedicated providers without a Helius key.
+- **Jito bundle helper** — `JitoBundle` / `relay.bundle()` assemble an ordered,
+  atomic multi-transaction bundle (validated against the 5-tx Block Engine
+  limit), and `relay.sendBundle(...)` now accepts a `JitoBundle` or a raw array.
+  Exports `createBundle`, `normalizeBundle`, and `JITO_MAX_BUNDLE_SIZE`.
+
+### Changed
+
+- Test suite expanded to **178 tests** at **100% statements / branches /
+  functions / lines**; enforced coverage floors raised to 99/100/98/99.
+
 ### Fixed
 
 - **Health checker**: the default `getHealth` probe now inspects the response
@@ -13,7 +36,7 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
   raw transport does not throw on, so it was previously left in rotation; such
   endpoints (and any non-`"ok"` result) are now correctly marked unhealthy.
 
-### Added
+### Earlier on `main` (pre-tag)
 
 - **WebSocket subscription failover** — `createResilientSubscriptions(...)` wraps
   web3.js v2 subscriptions in an auto-reconnecting, endpoint-rotating async
@@ -61,4 +84,5 @@ Initial release. A resilience layer for Solana dApps, implemented as a custom
   manual clock — drives the fully-offline test suite (110 tests, 99% lines /
   94% branches) across latency, drops, 429 bursts, and intermittent errors.
 
+[0.2.0]: https://github.com/deviverr/solana-resilience-sdk/releases/tag/v0.2.0
 [0.1.0]: https://github.com/deviverr/solana-resilience-sdk/releases/tag/v0.1.0
