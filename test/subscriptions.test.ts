@@ -56,6 +56,21 @@ describe("resilientSubscription (core)", () => {
     expect(connect).not.toHaveBeenCalled();
   });
 
+  it("stops cleanly when the caller aborts and the stream then ends without error", async () => {
+    // Exercises the post-teardown abort check: the stream completes normally
+    // *after* the caller has aborted, so we must return rather than reconnect.
+    const ac = new AbortController();
+    const connect = vi.fn(async () => streamOf([1]));
+    const gen = resilientSubscription({ connect, signal: ac.signal, ...fast });
+    const out: number[] = [];
+    for await (const x of gen) {
+      out.push(x);
+      ac.abort(); // abort right after the first item; the stream ends cleanly next
+    }
+    expect(out).toEqual([1]);
+    expect(connect).toHaveBeenCalledTimes(1); // aborted → no reconnect
+  });
+
   it("treats an AbortError from the stream as a clean stop", async () => {
     const abortErr = new DOMException("aborted", "AbortError");
     const connect = vi.fn(async () => streamOf<number>([], { thenThrow: abortErr }));

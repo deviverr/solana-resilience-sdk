@@ -135,10 +135,11 @@ function bump(map: Map<string, Bucket>, key: string, event: RpcMetricEvent): voi
 function toStats(map: Map<string, Bucket>): Record<string, MethodStats> {
   const out: Record<string, MethodStats> = {};
   for (const [key, b] of map) {
+    // `bump` creates a bucket only while incrementing `requests`, so it is ≥ 1.
     out[key] = {
       requests: b.requests,
       failures: b.failures,
-      avgLatencyMs: b.requests === 0 ? 0 : b.latencySum / b.requests,
+      avgLatencyMs: b.latencySum / b.requests,
     };
   }
   return out;

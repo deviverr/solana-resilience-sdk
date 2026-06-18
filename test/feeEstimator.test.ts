@@ -84,6 +84,12 @@ describe("FeeEstimator", () => {
     expect((await est.estimate()).microLamportsPerCu).toBe(500); // refreshed
   });
 
+  it("computes an even-count median by averaging the two middle values", async () => {
+    const sources = [src("a", 10), src("b", 20), src("c", 30), src("d", 40)];
+    const e = await new FeeEstimator({ sources, aggregate: "median" }).estimate();
+    expect(e.microLamportsPerCu).toBe(25); // (20 + 30) / 2
+  });
+
   it("carries through a configured compute-unit limit", async () => {
     const e = await new FeeEstimator({
       sources: [src("a", 5)],

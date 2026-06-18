@@ -18,14 +18,14 @@ export default defineConfig({
         "src/**/types.ts",
         "src/relay/mevRelay.ts",
       ],
-      // Floors are set comfortably below the achieved numbers (99% lines /
-      // 94% branches) so a small refactor can't silently erode the suite,
-      // while still failing CI hard if coverage regresses below the bounty bar.
+      // The suite covers 100% of statements/branches/functions/lines. Floors
+      // are set just below that so a small refactor can't silently erode the
+      // suite, while still failing CI hard the moment coverage regresses.
       thresholds: {
-        lines: 95,
-        functions: 95,
-        branches: 90,
-        statements: 95,
+        lines: 99,
+        functions: 100,
+        branches: 98,
+        statements: 99,
       },
     },
   },
