@@ -1,6 +1,7 @@
 import type { Address } from "@solana/web3.js";
 import type { MevRelay, RelaySendOptions } from "./mevRelay.js";
 import { createTransferInstruction, type TransferInstruction } from "./tip.js";
+import { JitoBundle, normalizeBundle } from "./bundle.js";
 
 /** Canonical Jito mainnet tip accounts (a tip transfer must target one). */
 export const JITO_TIP_ACCOUNTS = [
@@ -94,15 +95,25 @@ export class JitoRelay implements MevRelay {
     return result;
   }
 
-  /** Submit an atomic bundle of base64 transactions; resolves with a bundle id. */
+  /** Start assembling a multi-transaction {@link JitoBundle}. */
+  bundle(transactions?: readonly string[]): JitoBundle {
+    return new JitoBundle(transactions);
+  }
+
+  /**
+   * Submit an atomic bundle (a {@link JitoBundle} or a raw list of base64
+   * transactions) to the Block Engine; resolves with the bundle id. The set is
+   * validated to be non-empty and within {@link JITO_MAX_BUNDLE_SIZE}.
+   */
   async sendBundle(
-    base64Transactions: readonly string[],
+    bundle: JitoBundle | readonly string[],
     options: RelaySendOptions = {},
   ): Promise<string> {
+    const transactions = normalizeBundle(bundle);
     return this.rpc<string>(
       "/api/v1/bundles",
       "sendBundle",
-      [base64Transactions, { encoding: "base64" }],
+      [transactions, { encoding: "base64" }],
       options.signal,
     );
   }
