@@ -130,15 +130,42 @@ describe("PrometheusExporter", () => {
   });
 
   describe("serve", () => {
+    // Use node:http (not global fetch) so the check is deterministic across all
+    // supported Node versions — undici's fetch can hang on loopback on Node 18.
+    function httpGet(
+      port: number,
+      path: string,
+    ): Promise<{ status: number; contentType?: string; body: string }> {
+      return new Promise(async (resolve, reject) => {
+        const http = await import("node:http");
+        const req = http.get(
+          { host: "127.0.0.1", port, path },
+          (res) => {
+            let body = "";
+            res.setEncoding("utf8");
+            res.on("data", (chunk) => (body += chunk));
+            res.on("end", () =>
+              resolve({
+                status: res.statusCode ?? 0,
+                contentType: res.headers["content-type"],
+                body,
+              }),
+            );
+          },
+        );
+        req.on("error", reject);
+      });
+    }
+
     it("stands up a real /metrics server that responds over HTTP", async () => {
       const prom = new PrometheusExporter();
       prom.onEvent(ev());
-      const server = await prom.serve({ port: 0 }); // ephemeral port
+      const server = await prom.serve({ port: 0, host: "127.0.0.1" }); // ephemeral, IPv4 loopback
       try {
-        const res = await fetch(`http://127.0.0.1:${server.port}/metrics`);
+        const res = await httpGet(server.port, "/metrics");
         expect(res.status).toBe(200);
-        expect(res.headers.get("content-type")).toBe(PROMETHEUS_CONTENT_TYPE);
-        expect(await res.text()).toContain("solana_rpc_requests_total");
+        expect(res.contentType).toBe(PROMETHEUS_CONTENT_TYPE);
+        expect(res.body).toContain("solana_rpc_requests_total");
       } finally {
         await server.close();
       }
