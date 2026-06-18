@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import {
   nativeRecentFeesSource,
   heliusPriorityFeeSource,
+  tritonPriorityFeeSource,
+  quickNodePriorityFeeSource,
   staticFeeSource,
   type RecentFeesRpc,
 } from "../src/fees/providers.js";
@@ -99,6 +101,137 @@ describe("heliusPriorityFeeSource", () => {
       fetchFn: fetchFn as unknown as typeof fetch,
     });
     expect(await source.estimate({ accounts: ["A"] })).toBeNull();
+  });
+
+  it("returns null when the response estimate is not numeric", async () => {
+    const fetchFn = vi.fn(
+      async () =>
+        ({ ok: true, json: async () => ({ result: {} }) }) as Response,
+    );
+    const source = heliusPriorityFeeSource({
+      url: "https://helius.test",
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+    expect(await source.estimate({ accounts: ["A"] })).toBeNull();
+  });
+});
+
+describe("tritonPriorityFeeSource", () => {
+  const okRows = (rows: { prioritizationFee: number }[]) =>
+    ({ ok: true, json: async () => ({ result: rows }) }) as Response;
+
+  it("requests the percentile (in bp) and returns it client-side", async () => {
+    const fetchFn = vi.fn(
+      async (_url: string, _init: { body: string }) =>
+        okRows([
+          { prioritizationFee: 100 },
+          { prioritizationFee: 200 },
+          { prioritizationFee: 300 },
+        ]),
+    );
+    const source = tritonPriorityFeeSource({
+      url: "https://triton.test",
+      percentile: 50,
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+    const value = await source.estimate({ accounts: ["A"] });
+    expect(value).toBe(200); // p50 of [100,200,300]
+    const body = JSON.parse((fetchFn.mock.calls[0]![1] as { body: string }).body);
+    expect(body.method).toBe("getRecentPrioritizationFees");
+    expect(body.params[0]).toEqual(["A"]);
+    expect(body.params[1].percentile).toBe(5000); // 50% → 5000 bp
+  });
+
+  it("returns null when there are no non-zero fees", async () => {
+    const fetchFn = vi.fn(async () => okRows([{ prioritizationFee: 0 }]));
+    const source = tritonPriorityFeeSource({
+      url: "https://triton.test",
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+    expect(await source.estimate({})).toBeNull();
+  });
+
+  it("returns null on a non-ok HTTP response", async () => {
+    const fetchFn = vi.fn(async () => ({ ok: false }) as Response);
+    const source = tritonPriorityFeeSource({
+      url: "https://triton.test",
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+    expect(await source.estimate({ accounts: ["A"] })).toBeNull();
+  });
+
+  it("returns null when the response carries no result array", async () => {
+    const fetchFn = vi.fn(async () => ({ ok: true, json: async () => ({}) }) as Response);
+    const source = tritonPriorityFeeSource({
+      url: "https://triton.test",
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+    expect(await source.estimate({})).toBeNull();
+  });
+
+  it("defaults to the global fetch when none is provided", () => {
+    expect(tritonPriorityFeeSource({ url: "https://triton.test" }).name).toBe(
+      "triton",
+    );
+  });
+});
+
+describe("quickNodePriorityFeeSource", () => {
+  const okFees = (perCu: Record<string, number>) =>
+    ({ ok: true, json: async () => ({ result: { per_compute_unit: perCu } }) }) as Response;
+
+  it("reads the configured recommendation level from per_compute_unit", async () => {
+    const fetchFn = vi.fn(
+      async (_url: string, _init: { body: string }) =>
+        okFees({ low: 100, medium: 500, high: 1000, extreme: 2000 }),
+    );
+    const source = quickNodePriorityFeeSource({
+      url: "https://quicknode.test",
+      level: "high",
+      account: "Acc1",
+      lastNBlocks: 50,
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+    expect(await source.estimate({})).toBe(1000);
+    const body = JSON.parse((fetchFn.mock.calls[0]![1] as { body: string }).body);
+    expect(body.method).toBe("qn_estimatePriorityFees");
+    expect(body.params.account).toBe("Acc1");
+    expect(body.params.last_n_blocks).toBe(50);
+    expect(body.params.api_version).toBe(2);
+  });
+
+  it("defaults to the medium level", async () => {
+    const fetchFn = vi.fn(async () => okFees({ medium: 333 }));
+    const source = quickNodePriorityFeeSource({
+      url: "https://quicknode.test",
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+    expect(await source.estimate({})).toBe(333);
+  });
+
+  it("returns null when the level is missing or non-numeric", async () => {
+    const fetchFn = vi.fn(async () => okFees({ low: 1 }));
+    const source = quickNodePriorityFeeSource({
+      url: "https://quicknode.test",
+      level: "extreme",
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+    expect(await source.estimate({})).toBeNull();
+  });
+
+  it("returns null on a non-ok HTTP response", async () => {
+    const fetchFn = vi.fn(async () => ({ ok: false }) as Response);
+    const source = quickNodePriorityFeeSource({
+      url: "https://quicknode.test",
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+    expect(await source.estimate({})).toBeNull();
+  });
+
+  it("defaults to the global fetch when none is provided", () => {
+    expect(
+      quickNodePriorityFeeSource({ url: "https://quicknode.test" }).name,
+    ).toBe("quicknode");
   });
 });
 
